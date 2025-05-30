@@ -24,13 +24,16 @@
 
 using namespace std;
 
-char current;				// Current car	
+char current;// Current car	
+char nextchar;//ll2
 
-void ReadChar(void){		// Read character and skip spaces until 
-				// non space character is read
-	while(cin.get(current) && (current==' '||current=='\t'||current=='\n'))
-	   	cin.get(current);
+
+void ReadChar(void){
+	current = nextchar;
+	while(cin.get(nextchar) && (nextchar == ' ' || nextchar == '\t' || nextchar == '\n'))
+		cin.get(nextchar);
 }
+
 
 void Error(string s){
 	cerr<< s << endl;
@@ -94,6 +97,29 @@ void ArithmeticExpression(void){
 	}
 
 }
+string ReadOperatorRel() {
+	string op;
+
+	if (current == '<') {
+		if (nextchar == '=') { op = "<="; ReadChar(); }
+		else if (nextchar == '>') { op = "<>"; ReadChar(); }
+		else { op = "<"; }
+	}
+	else if (current == '>') {
+		if (nextchar == '=') { op = ">="; ReadChar(); }
+		else { op = ">"; }
+	}
+	else if (current == '=') {
+		op = "=";
+	}
+	else {
+		Error("Opérateur relationnel attendu");
+	}
+
+	ReadChar();  // avancer après opérateur
+	return op;
+}
+
 
 int main(void){	// First version : Source code on standard input and assembly code on standard output
 	// Header for gcc assembler / linker
@@ -103,10 +129,34 @@ int main(void){	// First version : Source code on standard input and assembly co
 	cout << "main:\t\t\t# The main function body :"<<endl;
 	cout << "\tmovq %rsp, %rbp\t# Save the position of the stack's top"<<endl;
 
-	// Let's proceed to the analysis and code production
-	ReadChar();
+	nextchar = cin.get(); // Initialise lookahead
+      
+        nextchar = cin.get();  // init
+ReadChar();
+
+ArithmeticExpression();
+
+if (current == '<' || current == '>' || current == '=') {
+	string op = ReadOperatorRel();
 	ArithmeticExpression();
-	ReadChar();
+
+	cout << "\tpop %rbx" << endl;
+	cout << "\tpop %rax" << endl;
+	cout << "\tcmp %rbx, %rax" << endl;
+
+	if (op == "=") cout << "\tsete %al" << endl;
+	else if (op == "<>") cout << "\tsetne %al" << endl;
+	else if (op == "<") cout << "\tsetl %al" << endl;
+	else if (op == "<=") cout << "\tsetle %al" << endl;
+	else if (op == ">") cout << "\tsetg %al" << endl;
+	else if (op == ">=") cout << "\tsetge %al" << endl;
+
+	cout << "\tmovzbq %al, %rax" << endl;
+	cout << "\tpush %rax" << endl;
+}
+
+ReadChar();  // lire le prochain caractère final
+
 	// Trailer for the gcc assembler / linker
 	cout << "\tmovq %rbp, %rsp\t\t# Restore the position of the stack's top"<<endl;
 	cout << "\tret\t\t\t# Return from main function"<<endl;
