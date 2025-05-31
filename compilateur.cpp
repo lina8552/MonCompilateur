@@ -25,13 +25,13 @@
 using namespace std;
 
 char current;// Current car	
-char nextchar;//ll2
+char nextcar; // lookahead LL(2)
+
 
 
 void ReadChar(void){
-	current = nextchar;
-	while(cin.get(nextchar) && (nextchar == ' ' || nextchar == '\t' || nextchar == '\n'))
-		cin.get(nextchar);
+	while(cin.get(current) && (current==' '||current=='\t'||current=='\n'));
+	nextcar = cin.peek(); // lookahead : caractère suivant
 }
 
 
@@ -52,6 +52,42 @@ void AdditiveOperator(void){
 	else
 		Error("Opérateur additif attendu");	   // Additive operator expected
 }
+string RelationalOperator(void){
+    string op;
+
+    switch(current){
+        case '=':
+            op = "==";
+            ReadChar();
+            break;
+        case '<':
+            if(nextcar == '='){
+                op = "<=";
+                ReadChar(); ReadChar();
+            } else if(nextcar == '>'){
+                op = "!=";
+                ReadChar(); ReadChar();
+            } else {
+                op = "<";
+                ReadChar();
+            }
+            break;
+        case '>':
+            if(nextcar == '='){
+                op = ">=";
+                ReadChar(); ReadChar();
+            } else {
+                op = ">";
+                ReadChar();
+            }
+            break;
+        default:
+            Error("Opérateur relationnel attendu");
+    }
+
+    return op;
+}
+
 		
 void Digit(void){
 	if((current<'0')||(current>'9'))
@@ -79,45 +115,45 @@ void Term(void){
 	     	else
 			Error("'(' ou chiffre attendu");
 }
+void SimpleArithmeticExpression(void){
+    char adop;
+    Term();
+    while(current=='+'||current=='-'){
+        adop=current;
+        AdditiveOperator();
+        Term();
+        cout << "\tpop %rbx" << endl;
+        cout << "\tpop %rax" << endl;
+        if(adop=='+')
+            cout << "\taddq %rbx, %rax" << endl;
+        else
+            cout << "\tsubq %rbx, %rax" << endl;
+        cout << "\tpush %rax" << endl;
+    }
+}
 
 void ArithmeticExpression(void){
-	char adop;
-	Term();
-	while(current=='+'||current=='-'){
-		adop=current;		// Save operator in local variable
-		AdditiveOperator();
-		Term();
-		cout << "\tpop %rbx"<<endl;	// get first operand
-		cout << "\tpop %rax"<<endl;	// get second operand
-		if(adop=='+')
-			cout << "\taddq	%rbx, %rax"<<endl;	// add both operands
-		else
-			cout << "\tsubq	%rbx, %rax"<<endl;	// substract both operands
-		cout << "\tpush %rax"<<endl;			// store result
-	}
+    SimpleArithmeticExpression(); // première partie
 
-}
-string ReadOperatorRel() {
-	string op;
+    // Si un opérateur relationnel est détecté, on lit le reste
+    if(current == '=' || current == '<' || current == '>'){
+        string relop = RelationalOperator();
+        SimpleArithmeticExpression();
 
-	if (current == '<') {
-		if (nextchar == '=') { op = "<="; ReadChar(); }
-		else if (nextchar == '>') { op = "<>"; ReadChar(); }
-		else { op = "<"; }
-	}
-	else if (current == '>') {
-		if (nextchar == '=') { op = ">="; ReadChar(); }
-		else { op = ">"; }
-	}
-	else if (current == '=') {
-		op = "=";
-	}
-	else {
-		Error("Opérateur relationnel attendu");
-	}
+        cout << "\tpop %rbx" << endl; // droite
+        cout << "\tpop %rax" << endl; // gauche
+        cout << "\tcmp %rbx, %rax" << endl;
 
-	ReadChar();  // avancer après opérateur
-	return op;
+        if(relop == "==")      cout << "\tsete %al" << endl;
+        else if(relop == "!=") cout << "\tsetne %al" << endl;
+        else if(relop == "<")  cout << "\tsetl %al" << endl;
+        else if(relop == "<=") cout << "\tsetle %al" << endl;
+        else if(relop == ">")  cout << "\tsetg %al" << endl;
+        else if(relop == ">=") cout << "\tsetge %al" << endl;
+
+        cout << "\tmovzbq %al, %rax" << endl;
+        cout << "\tpush %rax" << endl;
+    }
 }
 
 
@@ -129,34 +165,10 @@ int main(void){	// First version : Source code on standard input and assembly co
 	cout << "main:\t\t\t# The main function body :"<<endl;
 	cout << "\tmovq %rsp, %rbp\t# Save the position of the stack's top"<<endl;
 
-	nextchar = cin.get(); // Initialise lookahead
-      
-        nextchar = cin.get();  // init
-ReadChar();
-
-ArithmeticExpression();
-
-if (current == '<' || current == '>' || current == '=') {
-	string op = ReadOperatorRel();
+	// Let's proceed to the analysis and code production
+	ReadChar();
 	ArithmeticExpression();
-
-	cout << "\tpop %rbx" << endl;
-	cout << "\tpop %rax" << endl;
-	cout << "\tcmp %rbx, %rax" << endl;
-
-	if (op == "=") cout << "\tsete %al" << endl;
-	else if (op == "<>") cout << "\tsetne %al" << endl;
-	else if (op == "<") cout << "\tsetl %al" << endl;
-	else if (op == "<=") cout << "\tsetle %al" << endl;
-	else if (op == ">") cout << "\tsetg %al" << endl;
-	else if (op == ">=") cout << "\tsetge %al" << endl;
-
-	cout << "\tmovzbq %al, %rax" << endl;
-	cout << "\tpush %rax" << endl;
-}
-
-ReadChar();  // lire le prochain caractère final
-
+	ReadChar();
 	// Trailer for the gcc assembler / linker
 	cout << "\tmovq %rbp, %rsp\t\t# Restore the position of the stack's top"<<endl;
 	cout << "\tret\t\t\t# Return from main function"<<endl;
